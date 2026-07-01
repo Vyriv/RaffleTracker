@@ -8,10 +8,10 @@ A Hypixel SkyBlock mod that tracks Year 500 Raffle tasks.
 
 ## Features
 
-- **Raffle task HUD** - displays your scanned raffle tasks directly on your screen
-- **Reset timer tracking** - reads the raffle task reset timer from the Raffle Tasks paper and expires the cached task list when the timer ends
-- **Hover task details** - hover a task while a cursor is available to see its scanned objective text
-- **Moveable and resizable HUD** - use `/rt move` to drag the tracker, resize it with the scroll wheel, or use `+`, `-`, and `0`
+- Displays raffle tasks that arent completed
+- Click `Easy`, `Medium`, or `Hard` to switch task tabs.
+- Hover a task row to see what the challenge is.
+- use /rt move to drag or resize it
 
 ## Commands
 
@@ -37,7 +37,5 @@ You can also click the HUD directly while a cursor is available:
 
 ## Requirements
 
-- Minecraft 1.21.11 or 26.1.2
 - Fabric Loader 0.19.2+ for 1.21.11, or 0.19.3+ for 26.1.2
 - Fabric API
-- Java 21+ for 1.21.11, or Java 25+ for 26.1.2
