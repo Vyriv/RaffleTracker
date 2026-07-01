@@ -31,6 +31,7 @@ import net.minecraft.resources.Identifier;
 public final class RaffleTrackerClient implements ClientModInitializer {
 	private static RaffleTrackerFeature tracker;
 	private static boolean openMoveBoxNextTick;
+	private static boolean showedDownloadTitle;
 
 	@Override
 	public void onInitializeClient() {
@@ -41,6 +42,11 @@ public final class RaffleTrackerClient implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			tracker.tick(client);
+
+			if (!showedDownloadTitle && client.player != null && client.level != null) {
+				showedDownloadTitle = true;
+				client.gui.setTitle(Component.literal("Thanks for downloading! mod by Vyriv <3"));
+			}
 
 			if (!openMoveBoxNextTick) {
 				return;

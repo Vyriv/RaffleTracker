@@ -37,6 +37,7 @@ public final class RaffleTrackerFeature {
 	private static final int TAB_H = 12;
 	private static final int TASK_START_Y = 38;
 	private static final int ROW_H = 13;
+	private static final int MIN_TASK_SCREEN_STACKS = 9;
 	private static final Pattern UNIT_DURATION_PATTERN = Pattern.compile(
 		"(\\d+)\\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)\\b",
 		Pattern.CASE_INSENSITIVE
@@ -70,6 +71,7 @@ public final class RaffleTrackerFeature {
 	private long resetAtMillis;
 	private boolean resetTimerSeen;
 	private boolean needsNewTasks;
+	private boolean promptOpenTasksScreen;
 	private String lastMessageKey = "";
 	private long lastMessageAtMillis;
 	private Difficulty selectedDifficulty = Difficulty.EASY;
@@ -99,6 +101,7 @@ public final class RaffleTrackerFeature {
 				hiddenTaskIds.clear();
 				pendingCompletedTaskNames.clear();
 				needsNewTasks = true;
+				promptOpenTasksScreen = true;
 			}
 		}
 	}
@@ -164,6 +167,7 @@ public final class RaffleTrackerFeature {
 		resetAtMillis = 0L;
 		resetTimerSeen = false;
 		needsNewTasks = false;
+		promptOpenTasksScreen = false;
 		pendingCompletedTaskNames.clear();
 	}
 
@@ -204,12 +208,12 @@ public final class RaffleTrackerFeature {
 		g.text(client.font, title, HUD_PAD, 7, C_TITLE, true);
 		g.text(client.font, visible + "/" + tasks.size(), width - HUD_PAD - client.font.width(visible + "/" + tasks.size()), 7, C_MUTED, true);
 
-		if (needsNewTasks) {
-			drawCenteredStatus(client, g, width, 34, "OPEN RAFFLE FOR NEW TASKS", C_OPEN);
+		if (needsNewTasks || promptOpenTasksScreen) {
+			drawCenteredStatus(client, g, width, 34, "Open tasks screen", C_OPEN);
 		} else if (visible == 0 && !tasks.isEmpty()) {
-			drawCenteredStatus(client, g, width, 32, "All cached raffle tasks complete", C_TEXT);
+			drawCenteredStatus(client, g, width, 32, "Open tasks screen", C_TEXT);
 		} else if (tasks.isEmpty()) {
-			drawCenteredStatus(client, g, width, 32, moveMode ? "Open Raffle Tasks UI to scan" : "Open raffle UI to scan", C_WARN);
+			drawCenteredStatus(client, g, width, 32, "Open tasks screen", C_WARN);
 		} else {
 			drawTabs(client, g, width);
 			drawSelectedTasks(client, g, width, hoveredTask);
@@ -511,12 +515,14 @@ public final class RaffleTrackerFeature {
 
 	private int scanOpenRaffleScreen(Minecraft client, long now) {
 		if (client == null || !(client.screen instanceof AbstractContainerScreen<?> screen)) {
+			promptOpenTasksScreen = false;
 			return 0;
 		}
 
 		String title = clean(screen.getTitle().getString());
 		List<Slot> slots = screen.getMenu().slots;
 		if (!screenLooksLikeRaffle(title, slots)) {
+			promptOpenTasksScreen = false;
 			return 0;
 		}
 
@@ -543,7 +549,7 @@ public final class RaffleTrackerFeature {
 			}
 		}
 
-		if (!discovered.isEmpty()) {
+		if (discovered.size() >= MIN_TASK_SCREEN_STACKS) {
 			boolean wasWaitingForNewTasks = needsNewTasks;
 			tasks.clear();
 			tasks.addAll(discovered);
@@ -558,9 +564,12 @@ public final class RaffleTrackerFeature {
 			}
 			applyPendingCompletions(now);
 			needsNewTasks = false;
+			promptOpenTasksScreen = false;
+		} else if (tasks.isEmpty() || needsNewTasks) {
+			promptOpenTasksScreen = true;
 		}
 
-		return discovered.size();
+		return discovered.size() >= MIN_TASK_SCREEN_STACKS ? discovered.size() : 0;
 	}
 
 	private boolean screenLooksLikeRaffle(String title, List<Slot> slots) {
@@ -607,6 +616,7 @@ public final class RaffleTrackerFeature {
 
 	private boolean isTaskStack(String screenTitle, int slotIndex, String name, List<String> lore) {
 		String normalizedTitle = normalize(screenTitle);
+		String normalizedName = normalize(name);
 		String combined = normalize(name + " " + String.join(" ", lore));
 		if (combined.isEmpty() || combined.contains("TIME UNTIL RESET") || combined.contains("TASKS RESET AFTER")) {
 			return false;
@@ -614,16 +624,24 @@ public final class RaffleTrackerFeature {
 		if (combined.equals("RAFFLE TASKS") || combined.contains("OPEN RAFFLE TASKS") || combined.contains("GO BACK") || combined.contains("CLOSE")) {
 			return false;
 		}
-		if (combined.contains("EASY") || combined.contains("MEDIUM") || combined.contains("HARD")
-			|| combined.contains("OBJECTIVE") || combined.contains("PROGRESS") || combined.contains("TASK")) {
+		if (isNonTaskRaffleEntry(normalizedName, combined)) {
+			return false;
+		}
+		if (explicitDifficulty(name, lore) != Difficulty.UNKNOWN || hasObjectiveLine(name, lore)) {
 			return true;
 		}
-		return normalizedTitle.contains("RAFFLE TASK") && slotIndex < 36 && !name.isBlank();
+		if (combined.contains("PROGRESS") && normalizedTitle.contains("RAFFLE TASK")) {
+			return true;
+		}
+		return normalizedTitle.contains("RAFFLE TASK")
+			&& slotIndex < 36
+			&& !name.isBlank()
+			&& !isDifficultyTaskLabel(normalizedName)
+			&& !isTaskStatusLabel(normalizedName);
 	}
 
 	private RaffleTask parseTask(int ordinal, int slotIndex, String name, List<String> lore) {
-		String combined = name + " " + String.join(" ", lore);
-		Difficulty difficulty = Difficulty.fromText(combined);
+		Difficulty difficulty = explicitDifficulty(name, lore);
 		if (difficulty == Difficulty.UNKNOWN) {
 			difficulty = Difficulty.fromOrdinal(ordinal);
 		}
@@ -631,6 +649,50 @@ public final class RaffleTrackerFeature {
 		String title = chooseTaskTitle(ordinal, name, lore);
 		String id = normalize(title + " " + difficulty.name() + " " + slotIndex);
 		return new RaffleTask(id, title, difficulty, List.copyOf(lore), slotIndex);
+	}
+
+	private boolean isNonTaskRaffleEntry(String normalizedName, String combined) {
+		return normalizedName.contains("SPEED RAFFLE")
+			|| normalizedName.matches(".*\\bRAFFLE\\s+\\d+\\b.*")
+			|| normalizedName.contains("RAFFLE TICKET")
+			|| combined.contains("SPEED RAFFLE")
+			|| combined.contains("STARTS IN")
+			|| combined.contains("ENDS IN");
+	}
+
+	private boolean hasObjectiveLine(String name, List<String> lore) {
+		if (isObjectiveLine(normalize(name))) {
+			return true;
+		}
+		for (String line : lore) {
+			if (isObjectiveLine(normalize(line))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isObjectiveLine(String normalized) {
+		if (normalized.isBlank() || isDifficultyTaskLabel(normalized) || isTaskStatusLabel(normalized)) {
+			return false;
+		}
+		return normalized.contains("OBJECTIVE")
+			|| normalized.startsWith("GOAL")
+			|| (normalized.startsWith("TASK") && !normalized.contains("RAFFLE TASK"));
+	}
+
+	private Difficulty explicitDifficulty(String name, List<String> lore) {
+		Difficulty fromName = Difficulty.fromExplicitLine(name);
+		if (fromName != Difficulty.UNKNOWN) {
+			return fromName;
+		}
+		for (String line : lore) {
+			Difficulty fromLore = Difficulty.fromExplicitLine(line);
+			if (fromLore != Difficulty.UNKNOWN) {
+				return fromLore;
+			}
+		}
+		return Difficulty.UNKNOWN;
 	}
 
 	private String chooseTaskTitle(int ordinal, String name, List<String> lore) {
@@ -980,7 +1042,7 @@ public final class RaffleTrackerFeature {
 		if (moveMode) {
 			return true;
 		}
-		return enabled && (!tasks.isEmpty() || needsNewTasks);
+		return enabled && (!tasks.isEmpty() || needsNewTasks || promptOpenTasksScreen);
 	}
 
 	public boolean isEnabled() {
@@ -1101,19 +1163,45 @@ public final class RaffleTrackerFeature {
 			this.rowColor = rowColor;
 		}
 
-		private static Difficulty fromText(String value) {
+		private static Difficulty fromExplicitLine(String value) {
 			String normalized = ChatFormatting.stripFormatting(value == null ? "" : value);
-			normalized = normalized == null ? "" : normalized.toUpperCase(Locale.ROOT);
-			if (normalized.contains("HARD")) {
+			normalized = normalized == null ? "" : normalized
+				.replaceAll("(?i)&[0-9A-FK-OR]", "")
+				.toUpperCase(Locale.ROOT)
+				.replaceAll("[^A-Z0-9:]+", " ")
+				.replaceAll("\\s+", " ")
+				.trim();
+			String flat = normalized.replace(':', ' ').replaceAll("\\s+", " ").trim();
+			if (flat.equals("HARD") || flat.equals("HARD TASK") || flat.equals("HARD RAFFLE TASK")) {
 				return HARD;
 			}
-			if (normalized.contains("MEDIUM") || normalized.contains("MEDIU")) {
+			if (flat.equals("MEDIUM") || flat.equals("MEDIUM TASK") || flat.equals("MEDIUM RAFFLE TASK")) {
 				return MEDIUM;
 			}
-			if (normalized.contains("EASY") || normalized.contains("ASY")) {
+			if (flat.equals("EASY") || flat.equals("EASY TASK") || flat.equals("EASY RAFFLE TASK")) {
 				return EASY;
 			}
+			if (hasToken(flat, "DIFFICULTY")) {
+				if (hasToken(flat, "HARD")) {
+					return HARD;
+				}
+				if (hasToken(flat, "MEDIUM")) {
+					return MEDIUM;
+				}
+				if (hasToken(flat, "EASY")) {
+					return EASY;
+				}
+			}
 			return UNKNOWN;
+		}
+
+		private static boolean hasToken(String value, String token) {
+			for (String part : value.split(" ")) {
+				if (part.equals(token)) {
+					return true;
+				}
+			}
+			return false;
 		}
 
 		private static Difficulty fromOrdinal(int ordinal) {
