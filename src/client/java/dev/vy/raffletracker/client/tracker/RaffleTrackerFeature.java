@@ -72,6 +72,7 @@ public final class RaffleTrackerFeature {
 	private boolean resetTimerSeen;
 	private boolean needsNewTasks;
 	private boolean promptOpenTasksScreen;
+	private int cachedTaskTotal;
 	private String lastMessageKey = "";
 	private long lastMessageAtMillis;
 	private Difficulty selectedDifficulty = Difficulty.EASY;
@@ -100,6 +101,7 @@ public final class RaffleTrackerFeature {
 				tasks.clear();
 				hiddenTaskIds.clear();
 				pendingCompletedTaskNames.clear();
+				cachedTaskTotal = 0;
 				needsNewTasks = true;
 				promptOpenTasksScreen = true;
 			}
@@ -168,6 +170,7 @@ public final class RaffleTrackerFeature {
 		resetTimerSeen = false;
 		needsNewTasks = false;
 		promptOpenTasksScreen = false;
+		cachedTaskTotal = 0;
 		pendingCompletedTaskNames.clear();
 	}
 
@@ -204,9 +207,12 @@ public final class RaffleTrackerFeature {
 		drawFaintBackground(g, width, height);
 
 		int visible = visibleTasks().size();
+		int total = currentTaskTotal();
+		int completed = Math.max(0, total - visible);
+		String counter = completed + "/" + total;
 		String title = "Raffle Tasks";
 		g.text(client.font, title, HUD_PAD, 7, C_TITLE, true);
-		g.text(client.font, visible + "/" + tasks.size(), width - HUD_PAD - client.font.width(visible + "/" + tasks.size()), 7, C_MUTED, true);
+		g.text(client.font, counter, width - HUD_PAD - client.font.width(counter), 7, C_MUTED, true);
 
 		if (needsNewTasks || promptOpenTasksScreen) {
 			drawCenteredStatus(client, g, width, 34, "Open tasks screen", C_OPEN);
@@ -582,6 +588,7 @@ public final class RaffleTrackerFeature {
 			boolean wasWaitingForNewTasks = needsNewTasks;
 			tasks.clear();
 			tasks.addAll(discovered);
+			cachedTaskTotal = recognizedTaskStacks;
 			Set<String> ids = new HashSet<>();
 			for (RaffleTask task : tasks) {
 				ids.add(task.id());
@@ -909,6 +916,10 @@ public final class RaffleTrackerFeature {
 			}
 		}
 		return visible;
+	}
+
+	private int currentTaskTotal() {
+		return Math.max(cachedTaskTotal, tasks.size());
 	}
 
 	private Map<Difficulty, List<RaffleTask>> groupedVisibleTasks() {

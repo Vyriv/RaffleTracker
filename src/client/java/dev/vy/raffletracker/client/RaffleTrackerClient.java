@@ -19,6 +19,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 /*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 *///?}
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -111,14 +112,13 @@ public final class RaffleTrackerClient implements ClientModInitializer {
 		/*HudRenderCallback.EVENT.register((guiGraphics, deltaTracker) -> {
 		*///?}
 			Minecraft client = Minecraft.getInstance();
-			double guiScaleX = (double) client.getWindow().getGuiScaledWidth() / Math.max(1, client.getWindow().getWidth());
-			double guiScaleY = (double) client.getWindow().getGuiScaledHeight() / Math.max(1, client.getWindow().getHeight());
-			int mouseX = (int) Math.round(client.mouseHandler.xpos() * guiScaleX);
-			int mouseY = (int) Math.round(client.mouseHandler.ypos() * guiScaleY);
-			tracker.extractRenderState(client, guiGraphics, mouseX, mouseY);
+			if (client.screen == null) {
+				renderTrackerOverlay(client, guiGraphics, scaledMouseX(client), scaledMouseY(client));
+			}
 		});
 
 		ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+			registerScreenOverlay(client, screen);
 			ScreenMouseEvents.allowMouseClick(screen).register(new ScreenMouseEvents.AllowMouseClick() {
 				@Override
 				public boolean allowMouseClick(Screen s, MouseButtonEvent event) {
@@ -138,6 +138,38 @@ public final class RaffleTrackerClient implements ClientModInitializer {
 
 	public static RaffleTrackerFeature getTracker() {
 		return tracker;
+	}
+
+	private static void registerScreenOverlay(Minecraft client, Screen screen) {
+		//? if >= 26.1 {
+		ScreenEvents.afterExtract(screen).register((s, guiGraphics, mouseX, mouseY, tickProgress) -> renderTrackerOverScreen(client, s, guiGraphics, mouseX, mouseY));
+		//? } else {
+		/*ScreenEvents.afterRender(screen).register((s, guiGraphics, mouseX, mouseY, tickProgress) -> renderTrackerOverScreen(client, s, guiGraphics, mouseX, mouseY));
+		*///?}
+	}
+
+	private static void renderTrackerOverScreen(Minecraft client, Screen screen, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+		if (screen instanceof RaffleTrackerMoveScreen) {
+			return;
+		}
+		renderTrackerOverlay(client, guiGraphics, mouseX, mouseY);
+	}
+
+	private static void renderTrackerOverlay(Minecraft client, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+		if (tracker == null || client.player == null || client.level == null) {
+			return;
+		}
+		tracker.extractRenderState(client, guiGraphics, mouseX, mouseY);
+	}
+
+	private static int scaledMouseX(Minecraft client) {
+		double guiScaleX = (double) client.getWindow().getGuiScaledWidth() / Math.max(1, client.getWindow().getWidth());
+		return (int) Math.round(client.mouseHandler.xpos() * guiScaleX);
+	}
+
+	private static int scaledMouseY(Minecraft client) {
+		double guiScaleY = (double) client.getWindow().getGuiScaledHeight() / Math.max(1, client.getWindow().getHeight());
+		return (int) Math.round(client.mouseHandler.ypos() * guiScaleY);
 	}
 
 	private static int showStatus(FabricClientCommandSource source) {
