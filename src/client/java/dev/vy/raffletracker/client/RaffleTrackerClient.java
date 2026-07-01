@@ -112,7 +112,7 @@ public final class RaffleTrackerClient implements ClientModInitializer {
 		/*HudRenderCallback.EVENT.register((guiGraphics, deltaTracker) -> {
 		*///?}
 			Minecraft client = Minecraft.getInstance();
-			if (client.screen == null) {
+			if (client.screen == null && !isPlayerListOpen(client)) {
 				renderTrackerOverlay(client, guiGraphics, scaledMouseX(client), scaledMouseY(client));
 			}
 		});
@@ -170,6 +170,10 @@ public final class RaffleTrackerClient implements ClientModInitializer {
 	private static int scaledMouseY(Minecraft client) {
 		double guiScaleY = (double) client.getWindow().getGuiScaledHeight() / Math.max(1, client.getWindow().getHeight());
 		return (int) Math.round(client.mouseHandler.ypos() * guiScaleY);
+	}
+
+	private static boolean isPlayerListOpen(Minecraft client) {
+		return client.options != null && client.options.keyPlayerList.isDown();
 	}
 
 	private static int showStatus(FabricClientCommandSource source) {
