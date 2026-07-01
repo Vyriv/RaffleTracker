@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "raffletracker",
+	"version": "${version}",
+	"name": "RaffleTracker",
+	"description": "Hypixel SkyBlock raffle task tracker.",
+	"authors": [
+		"Vy"
+	],
+	"license": "All Rights Reserved",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"dev.vy.raffletracker.RaffleTracker"
+		],
+		"client": [
+			"dev.vy.raffletracker.client.RaffleTrackerClient"
+		]
+	},
+	"mixins": [
+		"raffletracker.mixins.json"
+	],
+	"icon": "assets/raffletracker/icon.png",
+	"depends": {
+		"fabricloader": "${loader}",
+		"minecraft": "${minecraft}",
+		"java": "${java}",
+		"fabric-api": "*"
+	}
+}

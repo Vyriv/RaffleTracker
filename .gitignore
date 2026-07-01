@@ -1,0 +1,30 @@
+.gradle/
+build/
+dist/
+run/
+.idea/
+*.iml
+out/
+
+# Fabric / Loom caches
+.loom-cache/
+remappedSources/
+
+# JVM / local crash output
+hs_err_pid*
+replay_pid*
+*.hprof
+*.log
+logs/
+crash-reports/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local environment
+.env
+.env.*
+local.properties

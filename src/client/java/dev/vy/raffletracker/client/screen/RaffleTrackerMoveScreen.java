@@ -1,0 +1,137 @@
+package dev.vy.raffletracker.client.screen;
+
+import dev.vy.raffletracker.client.tracker.RaffleTrackerFeature;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
+
+public final class RaffleTrackerMoveScreen extends Screen {
+	private final RaffleTrackerFeature trackerFeature;
+	private boolean dragging;
+	private int dragOffsetX;
+	private int dragOffsetY;
+
+	public RaffleTrackerMoveScreen(RaffleTrackerFeature trackerFeature) {
+		super(Component.literal("Move RaffleTracker"));
+		this.trackerFeature = trackerFeature;
+	}
+
+	@Override
+	public boolean isPauseScreen() {
+		return false;
+	}
+
+	@Override
+	public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+		guiGraphics.fill(0, 0, width, height, 0xE0000000);
+
+		if (dragging) {
+			Minecraft client = Minecraft.getInstance();
+			trackerFeature.setHudPosition(client, mouseX - dragOffsetX, mouseY - dragOffsetY, false);
+		}
+
+		drawMoveArea(guiGraphics, Minecraft.getInstance());
+		trackerFeature.extractRenderState(Minecraft.getInstance(), guiGraphics, mouseX, mouseY, true);
+
+		String line1 = "Drag the RaffleTracker overlay to position it.";
+		String line2 = "Scroll or press +/- to resize (" + trackerFeature.getHudScalePercent() + "%). Press 0 for 100%.";
+		String line3 = "Press Enter or Esc to save and close.";
+		int centerX = width / 2;
+		guiGraphics.centeredText(font, line1, centerX, 24, 0xFFFFFFFF);
+		guiGraphics.centeredText(font, line2, centerX, 38, 0xFFB6C2DF);
+		guiGraphics.centeredText(font, line3, centerX, 52, 0xFFB6C2DF);
+	}
+
+	private void drawMoveArea(GuiGraphicsExtractor guiGraphics, Minecraft client) {
+		int left = trackerFeature.getHudX() - 4;
+		int top = trackerFeature.getHudY() - 4;
+		int right = trackerFeature.getHudX() + trackerFeature.getDisplayWidth(client) + 4;
+		int bottom = trackerFeature.getHudY() + trackerFeature.getDisplayHeight(client) + 4;
+		guiGraphics.fill(left, top, right, bottom, 0x22FFFFFF);
+		guiGraphics.fill(left, top, right, top + 1, 0x66FFFFFF);
+		guiGraphics.fill(left, bottom - 1, right, bottom, 0x66FFFFFF);
+		guiGraphics.fill(left, top, left + 1, bottom, 0x66FFFFFF);
+		guiGraphics.fill(right - 1, top, right, bottom, 0x66FFFFFF);
+	}
+
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean isRepeat) {
+		if (event.button() != 0) {
+			return super.mouseClicked(event, isRepeat);
+		}
+
+		Minecraft client = Minecraft.getInstance();
+		int mouseX = (int) event.x();
+		int mouseY = (int) event.y();
+		if (trackerFeature.handleScreenMouseClick(client, mouseX, mouseY, event.button(), true)) {
+			return true;
+		}
+
+		int left = trackerFeature.getHudX() - 3;
+		int top = trackerFeature.getHudY() - 2;
+		int right = trackerFeature.getHudX() + trackerFeature.getDisplayWidth(client) + 3;
+		int bottom = trackerFeature.getHudY() + trackerFeature.getDisplayHeight(client) + 2;
+		if (mouseX < left || mouseX > right || mouseY < top || mouseY > bottom) {
+			return super.mouseClicked(event, isRepeat);
+		}
+
+		dragging = true;
+		dragOffsetX = mouseX - trackerFeature.getHudX();
+		dragOffsetY = mouseY - trackerFeature.getHudY();
+		return true;
+	}
+
+	@Override
+	public boolean mouseReleased(MouseButtonEvent event) {
+		if (event.button() == 0 && dragging) {
+			dragging = false;
+			trackerFeature.setHudPosition(Minecraft.getInstance(), trackerFeature.getHudX(), trackerFeature.getHudY(), true);
+			return true;
+		}
+		return super.mouseReleased(event);
+	}
+
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		Minecraft client = Minecraft.getInstance();
+		if (scrollY > 0.0D) {
+			trackerFeature.growHudScale(client, true);
+			return true;
+		}
+		if (scrollY < 0.0D) {
+			trackerFeature.shrinkHudScale(client, true);
+			return true;
+		}
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (event.key() == GLFW.GLFW_KEY_EQUAL || event.key() == GLFW.GLFW_KEY_KP_ADD) {
+			trackerFeature.growHudScale(Minecraft.getInstance(), true);
+			return true;
+		}
+		if (event.key() == GLFW.GLFW_KEY_MINUS || event.key() == GLFW.GLFW_KEY_KP_SUBTRACT) {
+			trackerFeature.shrinkHudScale(Minecraft.getInstance(), true);
+			return true;
+		}
+		if (event.key() == GLFW.GLFW_KEY_0 || event.key() == GLFW.GLFW_KEY_KP_0) {
+			trackerFeature.setHudScale(Minecraft.getInstance(), 1.0F, true);
+			return true;
+		}
+		if (event.key() == GLFW.GLFW_KEY_ESCAPE || event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER) {
+			trackerFeature.setHudPosition(Minecraft.getInstance(), trackerFeature.getHudX(), trackerFeature.getHudY(), true);
+			onClose();
+			return true;
+		}
+		return super.keyPressed(event);
+	}
+}

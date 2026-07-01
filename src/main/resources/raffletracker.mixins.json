@@ -1,0 +1,19 @@
+{
+	"required": true,
+	"package": "dev.vy.raffletracker.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"EntityCosmeticsMixin",
+		"EntityRendererCosmeticsMixin",
+		"FontCosmeticsMixin",
+		"PlayerInfoCosmeticsMixin",
+		"PlayerTabOverlayAccessor",
+		"PlayerTabOverlayCosmeticsMixin",
+		"SkyHanniAdvancedPlayerListCosmeticsMixin",
+		"SkyHanniScoreboardElementPartyCosmeticsMixin",
+		"SkyHanniScoreboardEventDungeonsCosmeticsMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
