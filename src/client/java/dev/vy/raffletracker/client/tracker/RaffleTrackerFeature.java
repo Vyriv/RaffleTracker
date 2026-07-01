@@ -453,6 +453,29 @@ public final class RaffleTrackerFeature {
 			|| normalized.equals("DONE");
 	}
 
+	private boolean isCompletedTaskStack(String name, List<String> lore) {
+		if (isCompletedTaskStatusLine(normalize(name))) {
+			return true;
+		}
+		for (String line : lore) {
+			if (isCompletedTaskStatusLine(normalize(line))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isCompletedTaskStatusLine(String normalized) {
+		if (normalized.isBlank() || normalized.contains("INCOMPLETE")) {
+			return false;
+		}
+		if (normalized.equals("COMPLETE") || normalized.equals("COMPLETED") || normalized.equals("DONE")) {
+			return true;
+		}
+		return normalized.matches("^(STATUS|PROGRESS|TASK STATUS):?\\s+(COMPLETE|COMPLETED|DONE)$")
+			|| normalized.matches(".*:\\s*(COMPLETE|COMPLETED|DONE)$");
+	}
+
 	private String stripInstructionPrefix(String line) {
 		String cleaned = clean(line);
 		return cleaned.replaceFirst("(?i)^(objective|task|goal)\\s*:?\\s*", "").trim();
@@ -528,6 +551,7 @@ public final class RaffleTrackerFeature {
 
 		List<RaffleTask> discovered = new ArrayList<>();
 		int taskOrdinal = 0;
+		int recognizedTaskStacks = 0;
 		int containerSlots = Math.max(0, slots.size() - 36);
 		for (int i = 0; i < containerSlots; i++) {
 			Slot slot = slots.get(i);
@@ -542,6 +566,11 @@ public final class RaffleTrackerFeature {
 			if (!isTaskStack(title, i, name, lore)) {
 				continue;
 			}
+			recognizedTaskStacks++;
+			if (isCompletedTaskStack(name, lore)) {
+				taskOrdinal++;
+				continue;
+			}
 			discovered.add(parseTask(taskOrdinal, i, name, lore));
 			taskOrdinal++;
 			if (discovered.size() >= 27) {
@@ -549,7 +578,7 @@ public final class RaffleTrackerFeature {
 			}
 		}
 
-		if (discovered.size() >= MIN_TASK_SCREEN_STACKS) {
+		if (recognizedTaskStacks >= MIN_TASK_SCREEN_STACKS) {
 			boolean wasWaitingForNewTasks = needsNewTasks;
 			tasks.clear();
 			tasks.addAll(discovered);
@@ -569,7 +598,7 @@ public final class RaffleTrackerFeature {
 			promptOpenTasksScreen = true;
 		}
 
-		return discovered.size() >= MIN_TASK_SCREEN_STACKS ? discovered.size() : 0;
+		return recognizedTaskStacks >= MIN_TASK_SCREEN_STACKS ? discovered.size() : 0;
 	}
 
 	private boolean screenLooksLikeRaffle(String title, List<Slot> slots) {
